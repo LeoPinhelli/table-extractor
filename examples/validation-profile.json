@@ -1,0 +1,9 @@
+{
+  "expected_columns": ["Item", "Quantidade", "Preco unitario"],
+  "min_rows": 3,
+  "unique_columns": ["Item"],
+  "numeric_columns": {
+    "Quantidade": {"decimal_separator": ".", "min": 0},
+    "Preco unitario": {"decimal_separator": ",", "min": 0}
+  }
+}
