@@ -36,7 +36,7 @@ def response(payload=None, status="completed"):
 
 
 def test_request_uses_image_schema_timeout_and_no_storage():
-    with patch("table_extractor.provider.requests.post", return_value=response()) as post:
+    with patch("requests.Session.post", return_value=response()) as post:
         payload, metadata = OpenAIExtractor("private-test-key", "test-model", 30).extract(b"image")
     assert payload == demo_payload()
     body = post.call_args.kwargs["json"]
@@ -66,21 +66,41 @@ def test_request_uses_image_schema_timeout_and_no_storage():
     ],
 )
 def test_incomplete_refused_and_malformed_responses_fail(mock_response):
-    with patch("table_extractor.provider.requests.post", return_value=mock_response):
+    with patch("requests.Session.post", return_value=mock_response):
         with pytest.raises(ExtractionError):
             OpenAIExtractor("test-key").extract(b"image")
 
 
 def test_network_errors_do_not_expose_secrets():
-    with patch("table_extractor.provider.requests.post", side_effect=requests.Timeout("secret-data")):
+    with patch("requests.Session.post", side_effect=requests.Timeout("secret-data")):
         with pytest.raises(ExtractionError) as error:
             OpenAIExtractor("private-test-key").extract(b"image")
     assert "secret" not in str(error.value)
     assert "private-test-key" not in str(error.value)
 
 
+@pytest.mark.parametrize(
+    "failure, expected",
+    [
+        (requests.exceptions.SSLError("secret-data"), "certificado TLS"),
+        (requests.exceptions.ProxyError("secret-data"), "proxy"),
+        (requests.exceptions.ConnectTimeout("secret-data"), "conectar"),
+        (requests.exceptions.ReadTimeout("secret-data"), "OPENAI_TIMEOUT"),
+        (requests.exceptions.ConnectionError("secret-data"), "DNS"),
+        (requests.RequestException("secret-data"), "comunicacao"),
+    ],
+)
+def test_network_failures_have_specific_safe_messages(failure, expected):
+    with patch("requests.Session.post", side_effect=failure):
+        with pytest.raises(ExtractionError) as error:
+            OpenAIExtractor("private-test-key").extract(b"image")
+    assert expected in str(error.value)
+    assert "secret-data" not in str(error.value)
+    assert "private-test-key" not in str(error.value)
+
+
 def test_http_errors_do_not_dump_response_body():
-    with patch("table_extractor.provider.requests.post", return_value=Mock(ok=False, status_code=429)):
+    with patch("requests.Session.post", return_value=Mock(ok=False, status_code=429)):
         with pytest.raises(ExtractionError, match="429"):
             OpenAIExtractor("test-key").extract(b"image")
 

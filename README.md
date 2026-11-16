@@ -70,6 +70,17 @@ Nenhum banco ou conta AWS é necessário. A chave não é salva nos resultados.
 O cliente envia `store=false`; isso não representa uma garantia de retenção zero
 por parte do provedor. Use imagens que você possa compartilhar com o serviço.
 
+### Conexão e certificados
+
+As conexões HTTPS usam os certificados confiáveis do sistema operacional, por meio
+de `truststore`, com verificação TLS ativa. Isso também permite usar certificados
+de redes corporativas já instalados no Windows, sem modificar o SSL global do Python.
+Se a rede exigir uma cadeia PEM específica, configure `REQUESTS_CA_BUNDLE` no `.env`.
+Se precisar de proxy, configure `HTTPS_PROXY`. Não publique esses arquivos locais.
+As mensagens distinguem falhas de certificado, proxy, conexão e tempo de resposta.
+`OPENAI_TIMEOUT` controla a espera pela resposta; aumentar esse valor não corrige
+uma falha de certificado.
+
 ## Interface visual
 
 ```bash
@@ -140,6 +151,7 @@ JSON / CSV / Excel + status e avisos
 src/table_extractor/
   core.py        Contrato, perfis e validação sem rede
   provider.py    Normalização e integração com o modelo
+  transport.py   HTTPS com certificados do sistema e suporte a proxy
   exporters.py   Arquivos locais e proteção contra fórmulas
   cli.py         Interface de linha de comando
   demo.py        Imagem e resposta sintéticas

@@ -9,6 +9,7 @@ import requests
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 from .core import EXTRACTION_PROMPT, TABLE_SCHEMA, ExtractionError, load_json
+from .transport import create_session
 
 API_URL = "https://api.openai.com/v1/responses"
 MAX_IMAGE_BYTES = 15 * 1024 * 1024
@@ -85,16 +86,34 @@ class OpenAIExtractor:
             },
         }
         try:
-            response = requests.post(
-                API_URL,
-                json=body,
-                headers={"Authorization": f"Bearer {self._api_key}"},
-                timeout=(15, self.timeout),
-            )
-        except requests.RequestException:
+            with create_session() as session:
+                response = session.post(
+                    API_URL,
+                    json=body,
+                    headers={"Authorization": f"Bearer {self._api_key}"},
+                    timeout=(15, self.timeout),
+                )
+        except requests.exceptions.SSLError:
             raise ExtractionError(
-                "Falha de rede ao acessar o provedor. Verifique conexao e timeout."
+                "Nao foi possivel validar o certificado TLS da API. Confira os certificados "
+                "confiaveis do sistema ou configure REQUESTS_CA_BUNDLE com uma cadeia PEM valida."
             ) from None
+        except requests.exceptions.ProxyError:
+            raise ExtractionError(
+                "Falha ao acessar o proxy. Confira HTTPS_PROXY e a conexao com a rede."
+            ) from None
+        except requests.exceptions.ConnectTimeout:
+            raise ExtractionError("Tempo esgotado ao conectar a API. Confira rede e proxy.") from None
+        except requests.exceptions.Timeout:
+            raise ExtractionError(
+                "Tempo esgotado aguardando a API. Tente uma imagem menor ou aumente OPENAI_TIMEOUT."
+            ) from None
+        except requests.exceptions.ConnectionError:
+            raise ExtractionError(
+                "Nao foi possivel conectar a API. Confira internet, DNS, firewall e proxy."
+            ) from None
+        except requests.RequestException:
+            raise ExtractionError("Falha na comunicacao com a API.") from None
         if not response.ok:
             raise ExtractionError(
                 f"Provedor retornou HTTP {response.status_code}; confira chave, modelo e limites."

@@ -32,7 +32,7 @@ def test_runs_do_not_overwrite_previous_files(tmp_path):
 
 
 def test_demo_runs_without_api_or_credentials(tmp_path, capsys):
-    with patch("table_extractor.provider.requests.post", side_effect=AssertionError("network forbidden")):
+    with patch("requests.Session.post", side_effect=AssertionError("network forbidden")):
         code = main(["--demo", "--output", str(tmp_path)])
     assert code == 0
     document = json.loads(next(tmp_path.glob("*/result.json")).read_text(encoding="utf-8"))
@@ -51,7 +51,7 @@ def test_review_exit_code_and_preserved_outputs(tmp_path):
 def test_bad_profile_returns_error_before_network(tmp_path):
     profile = tmp_path / "profile.json"
     profile.write_text("not-json", encoding="utf-8")
-    with patch("table_extractor.provider.requests.post") as post:
+    with patch("requests.Session.post") as post:
         assert main(["--demo", "--profile", str(profile), "--output", str(tmp_path / "out")]) == 1
         post.assert_not_called()
     assert not (tmp_path / "out").exists()
